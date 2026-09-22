@@ -6,6 +6,7 @@ from render import render_occupancy
 from upload import upload_image, get_storage_client
 from post import post_to_instagram
 from state import get_last_posted_date, set_last_posted_date
+from ig_token import get_valid_token
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -47,8 +48,9 @@ def main():
     key = f"occupancy-{date}-{run_timestamp}.png"
     image_url = upload_image(image_path, bucket, key)
 
+    access_token = get_valid_token(client, bucket)
     caption = build_caption(stats, date)
-    post_to_instagram(image_url, caption)
+    post_to_instagram(image_url, caption, access_token)
 
     set_last_posted_date(client, bucket, date)
     logger.info("Pipeline completed successfully")
