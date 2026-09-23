@@ -9,7 +9,7 @@ IG_USER_ID = os.environ["IG_USER_ID"]
 GRAPH_URL = os.environ["GRAPH_URL"]
 
 
-def post_to_instagram(image_url, caption, access_token):
+def post_to_instagram(image_url: str, caption: str, access_token: str) -> dict:
     logger.info(f"Creating media container for {image_url}")
     container_resp = requests.post(
         f"{GRAPH_URL}/{IG_USER_ID}/media",

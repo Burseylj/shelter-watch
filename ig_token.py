@@ -2,6 +2,8 @@ import os
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Optional
+
 import requests
 from botocore.exceptions import ClientError
 
@@ -9,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 TOKEN_STATE_KEY = "state/ig-token.json"
 GRAPH_URL = os.environ["GRAPH_URL"]
-REFRESH_INTERVAL_DAYS = 45  # refresh well ahead of the 60-day hard expiry
+REFRESH_INTERVAL_DAYS = 45
 
 
-def _load_token_state(client, bucket):
+def _load_token_state(client, bucket: str) -> Optional[dict]:
     try:
         resp = client.get_object(Bucket=bucket, Key=TOKEN_STATE_KEY)
         return json.loads(resp["Body"].read().decode("utf-8"))
@@ -23,13 +25,13 @@ def _load_token_state(client, bucket):
         raise
 
 
-def _save_token_state(client, bucket, access_token, refreshed_at):
+def _save_token_state(client, bucket: str, access_token: str, refreshed_at: str) -> None:
     body = json.dumps({"access_token": access_token, "refreshed_at": refreshed_at})
     client.put_object(Bucket=bucket, Key=TOKEN_STATE_KEY, Body=body.encode("utf-8"))
     logger.info(f"Saved IG token state (refreshed_at={refreshed_at})")
 
 
-def _refresh_token(access_token):
+def _refresh_token(access_token: str) -> str:
     resp = requests.get(
         f"{GRAPH_URL}/refresh_access_token",
         params={"grant_type": "ig_refresh_token", "access_token": access_token},
@@ -40,7 +42,7 @@ def _refresh_token(access_token):
     return resp.json()["access_token"]
 
 
-def get_valid_token(client, bucket):
+def get_ig_token(client, bucket: str) -> str:
     state = _load_token_state(client, bucket)
 
     if state is None:
@@ -54,10 +56,10 @@ def get_valid_token(client, bucket):
     age_days = (datetime.now(timezone.utc) - refreshed_at).days
 
     if age_days >= REFRESH_INTERVAL_DAYS:
-        logger.info(f"Token is {age_days} days old — refreshing")
+        logger.info(f"Token is {age_days} days old, refreshing")
         new_token = _refresh_token(access_token)
         _save_token_state(client, bucket, new_token, datetime.now(timezone.utc).isoformat())
         return new_token
 
-    logger.info(f"Token is {age_days} days old — no refresh needed")
+    logger.info(f"Token is {age_days} days old, no refresh needed")
     return access_token

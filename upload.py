@@ -15,7 +15,7 @@ def get_storage_client():
     )
 
 
-def upload_image(local_path, bucket, key):
+def upload_image_bucket(local_path, bucket, key):
     logger.info(f"Uploading {local_path} to {bucket}/{key}")
     client = get_storage_client()
     client.upload_file(local_path, bucket, key, ExtraArgs={"ContentType": "image/png"})
