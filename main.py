@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 from fetch import get_latest_date, get_records_for_date, calculate_occupancy, get_history, OccupancyStats
+from post import post_carousel_to_instagram
 from render import render_occupancy, render_trend_graph
 from upload import upload_image_bucket, get_storage_client
 from state import get_last_posted_date, set_last_posted_date
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 TREND_HISTORY_DAYS = 30
 
 
-def build_caption(stats: dict, date: str) -> str:
+def build_caption(stats: OccupancyStats, date: str) -> str:
     return (
         f"Toronto shelter occupancy — {date}\n\n"
         f"Beds: {stats['bed_occupied']:.0f}/{stats['bed_capacity']:.0f} "
@@ -63,7 +64,7 @@ def main() -> None:
 
     access_token = get_ig_token(client, bucket)
     caption = build_caption(stats, date)
-    #post_carousel_to_instagram([occupancy_url, trend_url], caption, access_token)
+    post_carousel_to_instagram([occupancy_url, trend_url], caption, access_token)
 
     set_last_posted_date(client, bucket, date)
     logger.info("Pipeline completed successfully")

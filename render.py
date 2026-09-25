@@ -11,7 +11,7 @@ from fetch import OccupancyStats
 
 logger = logging.getLogger(__name__)
 
-def render_occupancy(stats: dict, latest_date: str, output_path: str = "occupancy.png") -> str:
+def render_occupancy(stats: OccupancyStats, latest_date: str, output_path: str = "occupancy.png") -> str:
     logger.info(f"Rendering occupancy image for {latest_date}")
 
     width, height = 1080, 1080
