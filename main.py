@@ -24,14 +24,12 @@ def build_caption(stats: OccupancyStats, date: str) -> str:
         f"({stats['room_occupancy_rate']}%)"
     )
 
-
-def fetch_stage(days: int = TREND_HISTORY_DAYS) -> tuple[str, OccupancyStats, list[tuple[str, OccupancyStats]]]:
+def fetch_stage(days: int = TREND_HISTORY_DAYS) -> tuple[OccupancyStats, list[tuple[str, OccupancyStats]]]:
     date = get_latest_date()
     records = get_records_for_date(date)
     stats = calculate_occupancy(records)
     history = get_history(days)
-    return date, stats, history
-
+    return stats, history
 
 def render_stage(date: str, stats: OccupancyStats, history: list, run_timestamp: str) -> tuple[str, str]:
     occupancy_path = render_occupancy(stats, date, output_path=f"/tmp/occupancy-{run_timestamp}.png")
@@ -51,12 +49,13 @@ def main() -> None:
     bucket = os.environ["BUCKET_NAME"]
     client = get_storage_client()
 
-    date, stats, history = fetch_stage()
-
+    date = get_latest_date()
     last_posted = get_last_posted_date(client, bucket)
     if date == last_posted and not force_post:
         logger.info(f"No new data since last post ({date}) — skipping")
         return
+    
+    stats, history = fetch_stage()
 
     run_timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     occupancy_path, trend_path = render_stage(date, stats, history, run_timestamp)
