@@ -5,3 +5,7 @@ __pycache__/
 .gitattributes
 .gitignore
 .env
+tests/
+pytest.ini
+requirements-dev.txt
+.pytest_cache/
