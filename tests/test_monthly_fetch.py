@@ -33,7 +33,6 @@ def test_summarize_month_handles_nulls():
     assert stats["unmatched"] == 20
     assert stats["single_call"] == 6
     assert stats["avg_per_day"] == 10.0
-    assert stats["repeat_share"] == 40.0
 
 
 class FakeResponse:

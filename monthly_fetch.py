@@ -11,25 +11,21 @@ from fetch import BASE_URL, to_number
 logger = logging.getLogger(__name__)
 
 SERVICE_QUEUE_RESOURCE_ID = "61191143-8143-4425-bf89-2c1523961227"
-LOOKBACK_MONTHS = 13  # report month plus 12 prior, enough for the year-ago comparison
-
+LOOKBACK_MONTHS = 13 
+RECENT_ROWS_LIMIT = 31 * (LOOKBACK_MONTHS + 1)
 
 class MonthStats(TypedDict):
     month: str  # "2026-08"
     days: int
     unmatched: int
     single_call: int
-    repeat_caller: int
     avg_per_day: float
-    repeat_share: float  # percent of unmatched that were repeat callers (not reported yet)
-
 
 class MonthReport(TypedDict):
     stats: MonthStats
     previous: MonthStats | None
     year_ago: MonthStats | None
     daily: list[tuple[str, int]]  # (date, unmatched), oldest first
-
 
 def get_recent_rows(limit: int) -> list[dict]:
     logger.info(f"Fetching last {limit} days of service queue data")
@@ -39,6 +35,10 @@ def get_recent_rows(limit: int) -> list[dict]:
     logger.info(f"Fetched {len(records)} rows")
     return records
 
+def latest_row_date(rows: list[dict]) -> str:
+    if not rows:
+        raise ValueError("Service queue returned no rows")
+    return max(r["Date"][:10] for r in rows)
 
 def latest_complete_month(last_date: date) -> str:
     last_day = monthrange(last_date.year, last_date.month)[1]
@@ -47,44 +47,38 @@ def latest_complete_month(last_date: date) -> str:
     previous_month_end = last_date.replace(day=1) - timedelta(days=1)
     return previous_month_end.strftime("%Y-%m")
 
-
 def shift_month(month: str, delta: int) -> str:
     year, m = (int(p) for p in month.split("-"))
     index = year * 12 + (m - 1) + delta
     return f"{index // 12}-{index % 12 + 1:02d}"
 
-
 def expected_days(month: str) -> int:
     year, m = (int(p) for p in month.split("-"))
     return monthrange(year, m)[1]
 
-
 def summarize_month(month: str, rows: list[dict]) -> MonthStats:
     unmatched = sum(int(to_number(r.get("Unmatched callers"))) for r in rows)
     single = sum(int(to_number(r.get("Single call"))) for r in rows)
-    repeat = sum(int(to_number(r.get("Repeat caller"))) for r in rows)
     days = len(rows)
     return {
         "month": month,
         "days": days,
         "unmatched": unmatched,
         "single_call": single,
-        "repeat_caller": repeat,
         "avg_per_day": round(unmatched / days, 1) if days else 0.0,
-        "repeat_share": round(repeat / unmatched * 100, 1) if unmatched else 0.0,
     }
 
-
-def get_month_report() -> MonthReport:
-    rows = get_recent_rows(limit=31 * (LOOKBACK_MONTHS + 1))
+def latest_row_date(rows: list[dict]) -> str:
     if not rows:
         raise ValueError("Service queue returned no rows")
+    return max(r["Date"][:10] for r in rows)
 
+def build_month_report(rows: list[dict]) -> MonthReport:
     by_month: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_month[r["Date"][:7]].append(r)
 
-    last_date = max(date.fromisoformat(r["Date"][:10]) for r in rows)
+    last_date = date.fromisoformat(latest_row_date(rows))
     month = latest_complete_month(last_date)
     if month not in by_month:
         raise ValueError(f"No rows found for report month {month}")
@@ -109,3 +103,6 @@ def get_month_report() -> MonthReport:
         "year_ago": comparison(shift_month(month, -12)),
         "daily": daily,
     }
+
+def get_month_report() -> MonthReport:
+    return build_month_report(get_recent_rows(RECENT_ROWS_LIMIT))
