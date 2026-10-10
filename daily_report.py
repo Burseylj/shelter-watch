@@ -35,7 +35,7 @@ def build_caption(stats: OccupancyStats, date: str) -> str:
 def ingest_stage(client, bucket: str) -> tuple[str, list[dict]]:
     date = get_latest_date()
     records = get_records_for_date(date)
-    save_snapshot(client, bucket, date, records)
+    save_snapshot(client, bucket, "occupancy", date, records)
     return date, records
 
 

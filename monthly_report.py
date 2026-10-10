@@ -3,7 +3,13 @@ from datetime import datetime, timezone
 
 import config
 from ig_token import get_ig_token
-from monthly_fetch import MonthReport, get_month_report
+from monthly_fetch import (
+    RECENT_ROWS_LIMIT,
+    MonthReport,
+    build_month_report,
+    get_recent_rows,
+    latest_row_date,
+)
 from post import post_carousel_to_instagram
 from render import (
     change_text,
@@ -12,6 +18,7 @@ from render import (
     render_month_card,
     render_month_daily_chart,
 )
+from snapshot import save_snapshot
 from state import get_last_posted_month, set_last_posted_month
 from upload import get_storage_client, upload_image_bucket
 
@@ -42,6 +49,12 @@ def build_caption(report: MonthReport) -> str:
     return "\n".join(lines)
 
 
+def ingest_stage(client, bucket: str) -> list[dict]:
+    rows = get_recent_rows(RECENT_ROWS_LIMIT)
+    save_snapshot(client, bucket, "central-intake-queue", latest_row_date(rows), rows)
+    return rows
+
+
 def render_stage(report: MonthReport, run_timestamp: str) -> tuple[str, str]:
     card_path = render_month_card(report, output_path=f"/tmp/monthly-card-{run_timestamp}.png")
     chart_path = render_month_daily_chart(
@@ -65,7 +78,8 @@ def main() -> None:
     bucket = config.bucket_name()
     client = get_storage_client()
 
-    report = get_month_report()
+    rows = ingest_stage(client, bucket)
+    report = build_month_report(rows)
     month = report["stats"]["month"]
 
     last_posted = get_last_posted_month(client, bucket)
