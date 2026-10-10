@@ -77,7 +77,13 @@ def render_trend_graph(history: list[tuple[str, OccupancyStats]], output_path: s
 
     ax.set_ylim(90, max(100, max(rates) * 1.01))
 
-    ax.set_title("Room Occupancy — Last 30 Days", fontsize=28, color="#0b0b0b", pad=30, loc="left")
+    ax.set_title(
+        f"Room Occupancy — Last {len(history)} Days",
+        fontsize=28,
+        color="#0b0b0b",
+        pad=30,
+        loc="left",
+    )
     ax.grid(axis="y", color="#e1e0d9", linewidth=1)
     ax.set_axisbelow(True)
 

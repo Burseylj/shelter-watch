@@ -1,14 +1,20 @@
-import os
 import logging
 from datetime import datetime, timezone
 
-from fetch import get_latest_date, get_records_for_date, calculate_occupancy, get_history, OccupancyStats
+import config
+from fetch import (
+    OccupancyStats,
+    calculate_occupancy,
+    get_history,
+    get_latest_date,
+    get_records_for_date,
+)
+from ig_token import get_ig_token
 from post import post_carousel_to_instagram
 from render import render_occupancy, render_trend_graph
 from snapshot import save_snapshot
-from upload import upload_image_bucket, get_storage_client
 from state import get_last_posted_date, set_last_posted_date
-from ig_token import get_ig_token
+from upload import get_storage_client, upload_image_bucket
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,30 +39,38 @@ def ingest_stage(client, bucket: str) -> tuple[str, list[dict]]:
     return date, records
 
 
-def render_stage(date: str, stats: OccupancyStats, history: list[tuple[str, OccupancyStats]],
-                 run_timestamp: str) -> tuple[str, str]:
-    occupancy_path = render_occupancy(stats, date, output_path=f"/tmp/occupancy-{run_timestamp}.png")
+def render_stage(
+    date: str,
+    stats: OccupancyStats,
+    history: list[tuple[str, OccupancyStats]],
+    run_timestamp: str,
+) -> tuple[str, str]:
+    occupancy_path = render_occupancy(
+        stats, date, output_path=f"/tmp/occupancy-{run_timestamp}.png"
+    )
     trend_path = render_trend_graph(history, output_path=f"/tmp/trend-{run_timestamp}.png")
     return occupancy_path, trend_path
 
 
-def upload_stage(occupancy_path: str, trend_path: str, bucket: str, date: str,
-                 run_timestamp: str) -> tuple[str, str]:
-    occupancy_url = upload_image_bucket(occupancy_path, bucket, f"occupancy-{date}-{run_timestamp}.png")
+def upload_stage(
+    occupancy_path: str, trend_path: str, bucket: str, date: str, run_timestamp: str
+) -> tuple[str, str]:
+    occupancy_url = upload_image_bucket(
+        occupancy_path, bucket, f"occupancy-{date}-{run_timestamp}.png"
+    )
     trend_url = upload_image_bucket(trend_path, bucket, f"trend-{date}-{run_timestamp}.png")
     return occupancy_url, trend_url
 
 
 def main() -> None:
     logger.info("Starting shelter occupancy pipeline")
-    force_post = os.environ.get("FORCE_POST", "").lower() in ("1", "true", "yes")
-    bucket = os.environ["BUCKET_NAME"]
+    bucket = config.bucket_name()
     client = get_storage_client()
 
     date, records = ingest_stage(client, bucket)
 
     last_posted = get_last_posted_date(client, bucket)
-    if date == last_posted and not force_post:
+    if date == last_posted and not config.force_post():
         logger.info(f"No new data since last post ({date}) — skipping")
         return
 
@@ -65,7 +79,9 @@ def main() -> None:
 
     run_timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     occupancy_path, trend_path = render_stage(date, stats, history, run_timestamp)
-    occupancy_url, trend_url = upload_stage(occupancy_path, trend_path, bucket, date, run_timestamp)
+    occupancy_url, trend_url = upload_stage(
+        occupancy_path, trend_path, bucket, date, run_timestamp
+    )
 
     access_token = get_ig_token(client, bucket)
     caption = build_caption(stats, date)

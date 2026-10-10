@@ -76,8 +76,12 @@ def get_history(days: int = 30) -> list[tuple[str, OccupancyStats]]:
         )
 
     logger.info(f"Built history with {len(history)} data points")
-    rates = [stats["room_occupancy_rate"] for _, stats in history]
-    logger.info(f"History room occupancy rate range: {min(rates):.1f}%–{max(rates):.1f}% across {len(history)} days")
+    if history:
+        rates = [stats["room_occupancy_rate"] for _, stats in history]
+        logger.info(
+            f"History room occupancy rate range: {min(rates):.1f}%–{max(rates):.1f}% "
+            f"across {len(history)} days"
+        )
     return history
 
 
